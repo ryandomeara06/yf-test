@@ -34,7 +34,7 @@ with tab1:
 
             # display company info
             st.subheader("Company Information")
-            info = stock.info
+            info = stock.get("info")
 
 
             company_name = info.get("longName", "N/A")
@@ -280,7 +280,7 @@ with tab2:
                     st.subheader("Portfolio Performance Analysis")
 
                     # Prepare prices DataFrame for portfolio stocks
-                    prices_data = {ticker: stock_data[ticker]['Close'] for ticker in stock_data}
+                    prices_data = {ticker: stock_data[ticker]['Close'].squeeze() for ticker in stock_data}
                     if prices_data:
                         # Check if all values in prices_data are scalars (should not happen with Series values from yfinance)
                         all_scalar_values = all(not isinstance(v, (pd.Series, list, np.ndarray)) for v in prices_data.values())
@@ -297,7 +297,7 @@ with tab2:
                     if not prices.empty and not spy_data.empty:
                         # Calculate daily returns
                         daily_returns = prices.pct_change().dropna()
-                        benchmark_prices = spy_data['Close']
+                        benchmark_prices = spy_data['Close'].squeeze()
                         benchmark_returns = benchmark_prices.pct_change().dropna()
 
                         # Align indices and drop NaNs again if necessary due to different start/end dates for some stocks
