@@ -212,6 +212,10 @@ with tab2:
     st.write("## Portfolio Analysis")
     st.write("Enter 5 stock tickers and their respective weights (0-100%). The total weight must sum to 100%.")
 
+    st.subheader("Portfolio Date Range")
+    start_date_portfolio = st.date_input("Start Date for Portfolio", pd.to_datetime("2023-01-01"), key='portfolio_start_date')
+    end_date_portfolio = st.date_input("End Date for Portfolio", pd.to_datetime("today"), key='portfolio_end_date')
+
     portfolio_stocks = []
     portfolio_weights = []
 
@@ -232,8 +236,48 @@ with tab2:
                 st.write("### Your Portfolio:")
                 for i in range(5):
                     st.write(f"**{portfolio_stocks[i].upper()}**: {portfolio_weights[i]}%")
-                # Here you would add the actual portfolio analysis logic
+
+                # Start of the new code for portfolio data fetching
+                st.subheader('Fetching Portfolio Data...')
+
+                stock_data = {}
+                valid_tickers = [ticker for ticker in portfolio_stocks if ticker]
+
+                if not valid_tickers:
+                    st.error("Please enter at least one stock ticker.")
+                else:
+                    for ticker in valid_tickers:
+                        try:
+                            df_portfolio = yf.download(ticker, start=start_date_portfolio, end=end_date_portfolio)
+                            if df_portfolio.empty:
+                                st.error(f"No Data Found for {ticker}. Please check the ticker symbol or date range.")
+                            else:
+                                stock_data[ticker] = df_portfolio
+                                st.success(f"Data Successfully extracted for {ticker}")
+                        except Exception as e:
+                            st.error(f"Error fetching data for {ticker}: {e}")
+
+                    if stock_data:
+                        first_ticker = list(stock_data.keys())[0]
+                        st.write(f"Preview of data for {first_ticker}:")
+                        st.dataframe(stock_data[first_ticker].head())
+
+                    # Fetch SPY data as a benchmark
+                    st.subheader('Fetching Benchmark Data (SPY)...')
+                    try:
+                        spy_data = yf.download('SPY', start=start_date_portfolio, end=end_date_portfolio)
+                        if spy_data.empty:
+                            st.warning("No Data Found for SPY. Unable to fetch benchmark data.")
+                        else:
+                            st.success("SPY benchmark data successfully extracted.")
+                            st.write("Preview of SPY data:")
+                            st.dataframe(spy_data.head())
+                    except Exception as e:
+                        st.error(f"Error fetching SPY benchmark data: {e}")
+                # End of the new code for portfolio data fetching
+
             else:
                 st.error(f"Total weights must sum to 100%. Current total: {total_weight}%")
         else:
+            st.error("Please enter all 5 stock tickers.")
             st.error("Please enter all 5 stock tickers.")
