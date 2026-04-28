@@ -248,7 +248,8 @@ with tab2:
                 else:
                     for ticker in valid_tickers:
                         try:
-                            df_portfolio = yf.download(ticker, start=start_date_portfolio, end=end_date_portfolio)
+                            # MODIFICATION HERE: auto_adjust=False to get unadjusted prices and dividends
+                            df_portfolio = yf.download(ticker, start=start_date_portfolio, end=end_date_portfolio, auto_adjust=False)
                             if df_portfolio.empty:
                                 st.error(f"No Data Found for {ticker}. Please check the ticker symbol or date range.")
                             else:
@@ -265,7 +266,7 @@ with tab2:
                     # Fetch SPY data as a benchmark
                     st.subheader('Fetching Benchmark Data (SPY)...')
                     try:
-                        spy_data = yf.download('SPY', start=start_date_portfolio, end=end_date_portfolio)
+                        spy_data = yf.download('SPY', start=start_date_portfolio, end=end_date_portfolio, auto_adjust=False)
                         if spy_data.empty:
                             st.warning("No Data Found for SPY. Unable to fetch benchmark data.")
                         else:
@@ -274,10 +275,121 @@ with tab2:
                             st.dataframe(spy_data.head())
                     except Exception as e:
                         st.error(f"Error fetching SPY benchmark data: {e}")
+
+                    # --- NEW CODE FOR CALCULATIONS --- 
+                    st.subheader("Portfolio Performance Analysis")
+
+                    # Prepare prices DataFrame for portfolio stocks
+                    prices_data = {ticker: stock_data[ticker]['Close'] for ticker in stock_data}
+                    if prices_data:
+                        prices = pd.DataFrame(prices_data).dropna()
+                    else:
+                        st.error("No valid stock data to perform portfolio analysis.")
+                        prices = pd.DataFrame()
+
+                    if not prices.empty and not spy_data.empty:
+                        # Calculate daily returns
+                        daily_returns = prices.pct_change().dropna()
+                        benchmark_prices = spy_data['Close']
+                        benchmark_returns = benchmark_prices.pct_change().dropna()
+
+                        # Align indices and drop NaNs again if necessary due to different start/end dates for some stocks
+                        common_index = daily_returns.index.intersection(benchmark_returns.index)
+                        daily_returns = daily_returns.loc[common_index]
+                        benchmark_returns = benchmark_returns.loc[common_index]
+
+                        # Create Portfolio dictionary for weights
+                        Portfolio = {portfolio_stocks[i]: portfolio_weights[i] / 100.0 for i in range(len(portfolio_stocks)) if portfolio_stocks[i] in stock_data}
+
+                        if not daily_returns.empty and Portfolio:
+                            portfolio_daily_returns = pd.Series(0.0, index=daily_returns.index)
+                            for symbol, weight in Portfolio.items():
+                                if symbol in daily_returns.columns:
+                                    portfolio_daily_returns += daily_returns[symbol] * weight
+                                else:
+                                    st.warning(f"Daily returns for {symbol} not available, skipping in portfolio calculation.")
+
+                            if not portfolio_daily_returns.empty:
+                                # Calculate total returns
+                                portfolio_total = (1 + portfolio_daily_returns).prod() - 1
+                                benchmark_total = (1 + benchmark_returns).prod() - 1
+
+                                # Volatility
+                                portfolio_vol = portfolio_daily_returns.std() * np.sqrt(252)
+                                benchmark_vol = benchmark_returns.std() * np.sqrt(252)
+
+                                # Sharpe Ratio
+                                risk_free_rate = 0.03 # Assuming an annual risk-free rate of 3%
+                                portfolio_sharpe = (portfolio_total - risk_free_rate) / portfolio_vol if portfolio_vol != 0 else 0
+                                benchmark_sharpe = (benchmark_total - risk_free_rate) / benchmark_vol if benchmark_vol != 0 else 0
+
+                                st.write("#### Comparative Performance")
+                                col_port_ret, col_bench_ret = st.columns(2)
+                                with col_port_ret:
+                                    st.metric(label="Portfolio Total Return", value=f"{portfolio_total * 100:.2f}%")
+                                with col_bench_ret:
+                                    st.metric(label="Benchmark (SPY) Total Return", value=f"{benchmark_total * 100:.2f}%")
+
+                                if portfolio_total > benchmark_total:
+                                    st.success("Your portfolio **outperformed** the benchmark!")
+                                elif portfolio_total < benchmark_total:
+                                    st.error("Your portfolio **underperformed** the benchmark.")
+                                else:
+                                    st.info("Your portfolio **performed equally** to the benchmark.")
+
+                                st.write("#### Risk and Risk-Adjusted Returns")
+                                col_port_vol, col_bench_vol = st.columns(2)
+                                with col_port_vol:
+                                    st.metric(label="Portfolio Annualized Volatility", value=f"{portfolio_vol * 100:.2f}%")
+                                with col_bench_vol:
+                                    st.metric(label="Benchmark Annualized Volatility", value=f"{benchmark_vol * 100:.2f}%")
+
+                                col_port_sharpe, col_bench_sharpe = st.columns(2)
+                                with col_port_sharpe:
+                                    st.metric(label="Portfolio Sharpe Ratio", value=f"{portfolio_sharpe:.2f}")
+                                with col_bench_sharpe:
+                                    st.metric(label="Benchmark Sharpe Ratio", value=f"{benchmark_sharpe:.2f}")
+
+                                # --- Summary of Analysis ---
+                                st.subheader("Analysis Summary")
+
+                                # Did the portfolio outperform the benchmark?
+                                if portfolio_total > benchmark_total:
+                                    st.write(f"**1. Outperformance:** Your portfolio's total return of {portfolio_total * 100:.2f}% **outperformed** the benchmark (SPY) which had a total return of {benchmark_total * 100:.2f}%.")
+                                elif portfolio_total < benchmark_total:
+                                    st.write(f"**1. Underperformance:** Your portfolio's total return of {portfolio_total * 100:.2f}% **underperformed** the benchmark (SPY) which had a total return of {benchmark_total * 100:.2f}%.")
+                                else:
+                                    st.write(f"**1. Equal Performance:** Your portfolio's total return of {portfolio_total * 100:.2f}% **performed equally** to the benchmark (SPY) which had a total return of {benchmark_total * 100:.2f}%. Both had total returns of {benchmark_total * 100:.2f}%. ")
+
+                                # Was it more or less risky?
+                                if portfolio_vol > benchmark_vol:
+                                    st.write(f"**2. Risk:** Your portfolio's annualized volatility of {portfolio_vol * 100:.2f}% was **more risky** than the benchmark's (SPY) volatility of {benchmark_vol * 100:.2f}%.")
+                                elif portfolio_vol < benchmark_vol:
+                                    st.write(f"**2. Risk:** Your portfolio's annualized volatility of {portfolio_vol * 100:.2f}% was **less risky** than the benchmark's (SPY) volatility of {benchmark_vol * 100:.2f}%.")
+                                else:
+                                    st.write(f"**2. Risk:** Your portfolio's annualized volatility of {portfolio_vol * 100:.2f}% was **equally risky** to the benchmark's (SPY) volatility of {benchmark_vol * 100:.2f}%.")
+
+                                # Was it efficient based on Sharpe ratio?
+                                if portfolio_sharpe > benchmark_sharpe:
+                                    st.write(f"**3. Efficiency (Sharpe Ratio):** With a Sharpe Ratio of {portfolio_sharpe:.2f}, your portfolio was **more efficient** than the benchmark (SPY) which had a Sharpe Ratio of {benchmark_sharpe:.2f}. This suggests better risk-adjusted returns.")
+                                elif portfolio_sharpe < benchmark_sharpe:
+                                    st.write(f"**3. Efficiency (Sharpe Ratio):** With a Sharpe Ratio of {portfolio_sharpe:.2f}, your portfolio was **less efficient** than the benchmark (SPY) which had a Sharpe Ratio of {benchmark_sharpe:.2f}. This suggests lower risk-adjusted returns.")
+                                else:
+                                    st.write(f"**3. Efficiency (Sharpe Ratio):** Your portfolio and the benchmark (SPY) had **equal efficiency** with a Sharpe Ratio of {benchmark_sharpe:.2f}.")
+
+
+                            else:
+                                st.warning("Insufficient daily returns data for portfolio calculation.")
+                        else:
+                            st.warning("Not enough data to calculate daily returns for portfolio analysis.")
+                    else:
+                        st.warning("Cannot perform comparative analysis: missing stock or benchmark data.")
+
+                    # --- END NEW CODE ---
+
                 # End of the new code for portfolio data fetching
 
             else:
                 st.error(f"Total weights must sum to 100%. Current total: {total_weight}%")
         else:
-            st.error("Please enter all 5 stock tickers.")
             st.error("Please enter all 5 stock tickers.")
