@@ -8,22 +8,18 @@ st.set_page_config(page_title="Stock Data Extraction", layout="wide")
 
 st.title("Technical analysis indicator")
 
-st.write("Extract stock market prices from yahoo finance using ticker")
-
-st.sidebar.header("User input")
-
-ticker = st.sidebar.text_input("Enter Ticker", "AAPL")
-
-start_date = st.sidebar.date_input("start date", pd.to_datetime("2023-01-01"))
-end_date = st.sidebar.date_input("End Date", pd.to_datetime("today"))
-
-get_data_button = st.sidebar.button("Get Data")
-
 tab1, tab2 = st.tabs(["Stock Indicator", "Portfolio Analysis"])
 
 with tab1:
-    st.write("Extract stock market prices from yahoo finance using ticker") # Moved here
-    if get_data_button: # Now using the globally defined button
+    st.write("Extract stock market prices from yahoo finance using ticker")
+
+    st.subheader("Stock Input")
+    ticker = st.text_input("Enter Ticker", "AAPL")
+    start_date = st.date_input("start date", pd.to_datetime("2023-01-01"))
+    end_date = st.date_input("End Date", pd.to_datetime("today"))
+    get_data_button = st.button("Get Data")
+
+    if get_data_button:
         # create ticker object
         stock = yf.Ticker(ticker)
 
