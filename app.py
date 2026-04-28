@@ -34,8 +34,7 @@ with tab1:
 
             # display company info
             st.subheader("Company Information")
-            info = stock.get("info")
-
+            info = stock.info
 
             company_name = info.get("longName", "N/A")
             sector = info.get("sector", "N/A")
