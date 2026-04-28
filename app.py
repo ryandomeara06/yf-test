@@ -214,4 +214,30 @@ with tab1:
 
 with tab2:
     st.write("## Portfolio Analysis")
-    st.write("This section is under development.")
+    st.write("Enter 5 stock tickers and their respective weights (0-100%). The total weight must sum to 100%.")
+
+    portfolio_stocks = []
+    portfolio_weights = []
+
+    for i in range(5):
+        col1, col2 = st.columns(2)
+        with col1:
+            ticker_input = st.text_input(f"Stock {i+1} Ticker", key=f"ticker_{i}")
+            portfolio_stocks.append(ticker_input)
+        with col2:
+            weight_input = st.number_input(f"Weight {i+1} (%)", min_value=0, max_value=100, value=0, key=f"weight_{i}")
+            portfolio_weights.append(weight_input)
+
+    if st.button("Analyze Portfolio"):
+        if all(s != '' for s in portfolio_stocks) and len(portfolio_stocks) == 5:
+            total_weight = sum(portfolio_weights)
+            if total_weight == 100:
+                st.success("Portfolio data entered successfully!")
+                st.write("### Your Portfolio:")
+                for i in range(5):
+                    st.write(f"**{portfolio_stocks[i].upper()}**: {portfolio_weights[i]}%")
+                # Here you would add the actual portfolio analysis logic
+            else:
+                st.error(f"Total weights must sum to 100%. Current total: {total_weight}%")
+        else:
+            st.error("Please enter all 5 stock tickers.")
