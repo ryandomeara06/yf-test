@@ -276,13 +276,20 @@ with tab2:
                     except Exception as e:
                         st.error(f"Error fetching SPY benchmark data: {e}")
 
-                    # --- NEW CODE FOR CALCULATIONS --- 
+                    # --- NEW CODE FOR CALCULATIONS ---
                     st.subheader("Portfolio Performance Analysis")
 
                     # Prepare prices DataFrame for portfolio stocks
                     prices_data = {ticker: stock_data[ticker]['Close'] for ticker in stock_data}
                     if prices_data:
-                        prices = pd.DataFrame(prices_data).dropna()
+                        # Check if all values in prices_data are scalars (should not happen with Series values from yfinance)
+                        all_scalar_values = all(not isinstance(v, (pd.Series, list, np.ndarray)) for v in prices_data.values())
+                        if all_scalar_values:
+                            # If all are scalars, provide a default index
+                            prices = pd.DataFrame(prices_data, index=[0]).dropna()
+                        else:
+                            # Otherwise, proceed as normal
+                            prices = pd.DataFrame(prices_data).dropna()
                     else:
                         st.error("No valid stock data to perform portfolio analysis.")
                         prices = pd.DataFrame()
@@ -355,19 +362,19 @@ with tab2:
 
                                 # Did the portfolio outperform the benchmark?
                                 if portfolio_total > benchmark_total:
-                                    st.write(f"**1. Outperformance:** Your portfolio's total return of {portfolio_total * 100:.2f}% **outperformed** the benchmark (SPY) which had a total return of {benchmark_total * 100:.2f}%.")
+                                    st.write(f"**1. Outperformance:** Your portfolio's total return of {portfolio_total * 100:.2f}% **outperformed** the benchmark (SPY) which had a total return of {benchmark_total * 100:.2f}%")
                                 elif portfolio_total < benchmark_total:
-                                    st.write(f"**1. Underperformance:** Your portfolio's total return of {portfolio_total * 100:.2f}% **underperformed** the benchmark (SPY) which had a total return of {benchmark_total * 100:.2f}%.")
+                                    st.write(f"**1. Underperformance:** Your portfolio's total return of {portfolio_total * 100:.2f}% **underperformed** the benchmark (SPY) which had a total return of {benchmark_total * 100:.2f}%")
                                 else:
                                     st.write(f"**1. Equal Performance:** Your portfolio's total return of {portfolio_total * 100:.2f}% **performed equally** to the benchmark (SPY) which had a total return of {benchmark_total * 100:.2f}%. Both had total returns of {benchmark_total * 100:.2f}%. ")
 
                                 # Was it more or less risky?
                                 if portfolio_vol > benchmark_vol:
-                                    st.write(f"**2. Risk:** Your portfolio's annualized volatility of {portfolio_vol * 100:.2f}% was **more risky** than the benchmark's (SPY) volatility of {benchmark_vol * 100:.2f}%.")
+                                    st.write(f"**2. Risk:** Your portfolio's annualized volatility of {portfolio_vol * 100:.2f}% was **more risky** than the benchmark's (SPY) volatility of {benchmark_vol * 100:.2f}%")
                                 elif portfolio_vol < benchmark_vol:
-                                    st.write(f"**2. Risk:** Your portfolio's annualized volatility of {portfolio_vol * 100:.2f}% was **less risky** than the benchmark's (SPY) volatility of {benchmark_vol * 100:.2f}%.")
+                                    st.write(f"**2. Risk:** Your portfolio's annualized volatility of {portfolio_vol * 100:.2f}% was **less risky** than the benchmark's (SPY) volatility of {benchmark_vol * 100:.2f}%")
                                 else:
-                                    st.write(f"**2. Risk:** Your portfolio's annualized volatility of {portfolio_vol * 100:.2f}% was **equally risky** to the benchmark's (SPY) volatility of {benchmark_vol * 100:.2f}%.")
+                                    st.write(f"**2. Risk:** Your portfolio's annualized volatility of {portfolio_vol * 100:.2f}% was **equally risky** to the benchmark's (SPY) volatility of {benchmark_vol * 100:.2f}%")
 
                                 # Was it efficient based on Sharpe ratio?
                                 if portfolio_sharpe > benchmark_sharpe:
